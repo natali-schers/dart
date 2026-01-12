@@ -1,35 +1,43 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:assincronismo/api_key.dart';
+import 'package:assincronismo/models/account.dart';
 import 'package:http/http.dart';
 
 class AccountService {
-  StreamController<String> _streamController = StreamController<String>();
+  final StreamController<String>_streamController = StreamController<String>();
   Stream<String> get infoStream => _streamController.stream;
   String url = "https://api.github.com/gists/e5f0dd30eb09d19856ea7b8a5239742f";
 
-  Future<List<dynamic>> getAll() async {
+  Future<List<Account>> getAll() async {
     Response response = await get(Uri.parse(url));
-
-    List<dynamic> accounts = json.decode(response.body);
 
     _streamController.add(
       "${DateTime.now()} | Requisição assíncrona concluída com sucesso!",
     );
 
-    return accounts;
+    Map<String, dynamic> mapResponse = jsonDecode(response.body);
+    
+    List<dynamic> listDynamic = jsonDecode(mapResponse["files"]["accounts.json"]["content"]);
+
+    return listDynamic.map((dynamic item) => Account.fromMap(item)).toList();
   }
 
-  void addAccount(Map<String, dynamic> data) async {
-    List<dynamic> accounts = await getAll();
+  Future<void> addAccount(Account account) async {
+    List<Account> accounts = await getAll();
+    
+    accounts.add(account);
 
-    accounts.add(data);
+    List<Map<String, dynamic>> listMap = accounts.map((Account acc) => acc.toMap()).toList();
+    
+    String encondedData = json.encode(listMap);
 
-    String encondedData = json.encode(accounts);
-
-    Response response = await post(
+    Response response = await patch(
       Uri.parse(url),
-      headers: {"Authorization": "Bearer $githubApiKey"},
+      headers: {
+        "Authorization": "Bearer $githubApiKey",
+        "Content-Type": "application/json",
+      },
       body: json.encode({
         "description": "Updated accounts data",
         "public": true,
